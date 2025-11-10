@@ -31,13 +31,23 @@ export const Navbar = () => {
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              🎮 Play
+              🎮 Practice
+            </button>
+            <button
+              onClick={() => navigate('/computer')}
+              className={`px-5 py-2.5 rounded-xl font-semibold transition-all transform hover:scale-105 ${
+                location.pathname === '/computer'
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              🤖 vs Computer
             </button>
             <button
               onClick={() => navigate('/history')}
               className={`px-5 py-2.5 rounded-xl font-semibold transition-all transform hover:scale-105 ${
                 location.pathname === '/history'
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >

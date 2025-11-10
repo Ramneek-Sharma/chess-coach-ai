@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -10,11 +11,39 @@ const PIECE_SYMBOLS: { [key: string]: string } = {
 
 export const ChessboardComponent = () => {
   const { gameState, makeMove, game } = useGameStore();
+  const [showPromotion, setShowPromotion] = useState(false);
+  const [promotionMove, setPromotionMove] = useState<{ from: string; to: string } | null>(null);
 
   const getPieceAt = (square: string) => {
     const piece = game.get(square as any);
     if (!piece) return null;
     return `${piece.color}${piece.type}`;
+  };
+
+  const isPromotionMove = (from: string, to: string): boolean => {
+    const piece = game.get(from as any);
+    if (!piece || piece.type !== 'p') return false;
+    
+    const toRank = to[1];
+    if (piece.color === 'w' && toRank === '8') return true;
+    if (piece.color === 'b' && toRank === '1') return true;
+    
+    return false;
+  };
+
+  const handlePromotion = (piece: string) => {
+    if (promotionMove) {
+      makeMove(promotionMove.from, promotionMove.to, piece);
+      setShowPromotion(false);
+      setPromotionMove(null);
+      
+      // Clear selection
+      const oldSquareElement = document.getElementById(`square-${promotionMove.from}`);
+      if (oldSquareElement) {
+        oldSquareElement.classList.remove('selected-square');
+      }
+      (window as any).selectedSquare = null;
+    }
   };
 
   const handleSquareClick = (square: string) => {
@@ -32,6 +61,14 @@ export const ChessboardComponent = () => {
         }
       }
     } else {
+      // Check if this is a promotion move
+      if (isPromotionMove(selectedSquare, square)) {
+        // Show promotion dialog
+        setPromotionMove({ from: selectedSquare, to: square });
+        setShowPromotion(true);
+        return;
+      }
+
       const success = makeMove(selectedSquare, square);
       
       const oldSquareElement = document.getElementById(`square-${selectedSquare}`);
@@ -55,7 +92,7 @@ export const ChessboardComponent = () => {
   };
 
   return (
-    <div className="w-full max-w-[680px]">
+    <div className="w-full max-w-[680px] relative">
       <style>{`
         .selected-square {
           background-color: rgba(255, 255, 100, 0.7) !important;
@@ -65,6 +102,41 @@ export const ChessboardComponent = () => {
           filter: brightness(1.12);
         }
       `}</style>
+
+      {/* Promotion Dialog */}
+      {showPromotion && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-xl">
+          <div className="bg-white rounded-xl p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-center mb-4">Promote to:</h3>
+            <div className="flex gap-4">
+              <button
+                onClick={() => handlePromotion('q')}
+                className="w-20 h-20 bg-gray-100 hover:bg-gray-200 rounded-lg text-6xl flex items-center justify-center transition-colors"
+              >
+                {gameState.turn === 'w' ? '♕' : '♛'}
+              </button>
+              <button
+                onClick={() => handlePromotion('r')}
+                className="w-20 h-20 bg-gray-100 hover:bg-gray-200 rounded-lg text-6xl flex items-center justify-center transition-colors"
+              >
+                {gameState.turn === 'w' ? '♖' : '♜'}
+              </button>
+              <button
+                onClick={() => handlePromotion('b')}
+                className="w-20 h-20 bg-gray-100 hover:bg-gray-200 rounded-lg text-6xl flex items-center justify-center transition-colors"
+              >
+                {gameState.turn === 'w' ? '♗' : '♝'}
+              </button>
+              <button
+                onClick={() => handlePromotion('n')}
+                className="w-20 h-20 bg-gray-100 hover:bg-gray-200 rounded-lg text-6xl flex items-center justify-center transition-colors"
+              >
+                {gameState.turn === 'w' ? '♘' : '♞'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Coordinates Top */}
       <div className="flex justify-center mb-2">
@@ -86,7 +158,7 @@ export const ChessboardComponent = () => {
           ))}
         </div>
 
-        {/* Board - BIGGER squares */}
+        {/* Board */}
         <div className="rounded-xl overflow-hidden shadow-2xl" style={{
           background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
           padding: '8px'
