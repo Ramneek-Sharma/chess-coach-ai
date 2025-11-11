@@ -5,6 +5,7 @@ import { GamePage } from './pages/GamePage';
 import { ComputerGamePage } from './pages/ComputerGamePage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ReplayPage } from './pages/ReplayPage';
+import { AnalysisPage } from './pages/AnalysisPage';
 import { useAuthStore } from './store/authStore';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -52,6 +53,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ReplayPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analysis/:gameId"
+          element={
+            <ProtectedRoute>
+              <AnalysisPage />
             </ProtectedRoute>
           }
         />

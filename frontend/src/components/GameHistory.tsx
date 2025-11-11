@@ -23,11 +23,14 @@ export const GameHistory = () => {
 
   const loadGames = async () => {
     try {
+      console.log('📥 Loading games...');
       const data = await gameAPI.getUserGames(50, 0);
-      setGames(data.games);
-      setTotal(data.total);
+      console.log('📦 Games data:', data);
+      setGames(data.games || []);
+      setTotal(data.total || 0);
+      console.log(`✅ Loaded ${data.games?.length || 0} games`);
     } catch (error) {
-      console.error('Failed to load games:', error);
+      console.error('❌ Failed to load games:', error);
     } finally {
       setLoading(false);
     }
@@ -145,6 +148,13 @@ export const GameHistory = () => {
                   className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                 >
                   Review
+                </button>
+                
+                <button
+                  onClick={() => navigate(`/analysis/${game.id}`)}
+                  className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                >
+                  Analyze
                 </button>
                 
                 <button

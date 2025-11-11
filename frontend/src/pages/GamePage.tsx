@@ -17,6 +17,12 @@ export const GamePage = () => {
 
   useEffect(() => {
     const saveGameIfEnded = async () => {
+      console.log('🎮 Game state check:', {
+        isCheckmate: gameState.isCheckmate,
+        isDraw: gameState.isDraw,
+        movesCount: gameState.moves.length,
+      });
+
       if (gameState.isCheckmate || gameState.isDraw) {
         if (gameState.moves.length > 0) {
           try {
@@ -25,18 +31,29 @@ export const GamePage = () => {
               result = gameState.turn === 'w' ? 'loss' : 'win';
             }
 
-            await gameAPI.saveGame({
+            const gameData = {
               pgn: gameState.pgn,
               fen: gameState.fen,
               result,
               userColor: 'white',
-              opponent: 'Bot',
-            });
+              opponent: 'Practice',
+            };
+
+            console.log('💾 Saving game to backend:', gameData);
+            const response = await gameAPI.saveGame(gameData);
+            console.log('✅ Game saved successfully:', response.data);
             
-            console.log('Game saved successfully');
-          } catch (error) {
-            console.error('Failed to save game:', error);
+            // Show success message
+            setTimeout(() => {
+              alert(`Game saved! Result: ${result}. Check your history!`);
+            }, 500);
+          } catch (error: any) {
+            console.error('❌ Failed to save game:', error);
+            console.error('Error details:', error.response?.data);
+            alert(`Failed to save game: ${error.response?.data?.message || error.message}`);
           }
+        } else {
+          console.warn('⚠️ Game ended but no moves to save');
         }
       }
     };
@@ -49,22 +66,18 @@ export const GamePage = () => {
       <Navbar />
       
       <div className="container mx-auto px-4 pb-8">
-        {/* Main Grid Layout - Board gets more space */}
         <div className="grid grid-cols-12 gap-4 max-w-[1900px] mx-auto">
           
-          {/* Left Column - Controls & Captured */}
           <div className="col-span-12 lg:col-span-2 space-y-4">
             <GameControls />
             <CapturedPieces />
           </div>
 
-          {/* Center Column - Chessboard (BIGGER) */}
-          <div className="col-span-12 lg:col-span-7 flex items-start justify-center">
+          <div className="col-span-12 lg:col-span-6 flex items-start justify-center">
             <ChessboardComponent />
           </div>
 
-          {/* Right Column - History & Chat (SMALLER) */}
-          <div className="col-span-12 lg:col-span-3 space-y-4">
+          <div className="col-span-12 lg:col-span-4 space-y-4">
             <MoveHistory />
             <AICoachChat />
           </div>

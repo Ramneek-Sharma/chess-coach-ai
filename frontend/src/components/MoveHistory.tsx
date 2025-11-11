@@ -1,8 +1,16 @@
 import { useGameStore } from '../store/gameStore';
+import { useComputerGameStore } from '../store/computerGameStore';
 import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export const MoveHistory = () => {
-  const { gameState } = useGameStore();
+  const location = useLocation();
+  const isComputerGame = location.pathname === '/computer';
+  
+  const practiceGameState = useGameStore((state) => state.gameState);
+  const computerGameState = useComputerGameStore((state) => state.gameState);
+  
+  const gameState = isComputerGame ? computerGameState : practiceGameState;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

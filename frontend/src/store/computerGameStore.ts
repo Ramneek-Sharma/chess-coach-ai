@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Chess } from 'chess.js';
 import { stockfish } from '../services/stockfish';
+import { gameAPI } from '../services/api';
 import { GameState, Move } from '../types/chess.types';
 
 interface ComputerGameStore {
@@ -9,6 +10,7 @@ interface ComputerGameStore {
   playerColor: 'white' | 'black';
   difficulty: number;
   isThinking: boolean;
+  isInitializing: boolean;
   initializeGame: (playerColor: 'white' | 'black', difficulty: number) => Promise<void>;
   makePlayerMove: (from: string, to: string, promotion?: string) => Promise<boolean>;
   makeComputerMove: () => Promise<void>;
@@ -37,41 +39,47 @@ export const useComputerGameStore = create<ComputerGameStore>((set, get) => ({
   playerColor: 'white',
   difficulty: 5,
   isThinking: false,
+  isInitializing: false,
 
   initializeGame: async (playerColor: 'white' | 'black', difficulty: number) => {
-    const game = new Chess();
+    set({ isInitializing: true });
     
-    // Initialize stockfish
-    await stockfish.init();
-    stockfish.setDifficulty(difficulty);
+    try {
+      const game = new Chess();
+      
+      await stockfish.init();
+      stockfish.setDifficulty(difficulty);
 
-    set({
-      game,
-      gameState: createInitialGameState(game),
-      playerColor,
-      difficulty,
-      isThinking: false,
-    });
+      set({
+        game,
+        gameState: createInitialGameState(game),
+        playerColor,
+        difficulty,
+        isThinking: false,
+        isInitializing: false,
+      });
 
-    // If player is black, computer moves first
-    if (playerColor === 'black') {
-      setTimeout(() => {
-        get().makeComputerMove();
-      }, 500);
+      if (playerColor === 'black') {
+        setTimeout(() => {
+          get().makeComputerMove();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Failed to initialize:', error);
+      set({ isInitializing: false });
     }
   },
 
   makePlayerMove: async (from: string, to: string, promotion?: string) => {
-    const { game, playerColor, gameState } = get();
+    const { game, playerColor, gameState, isThinking } = get();
     
-    // Check if it's player's turn
+    if (isThinking) return false;
+
     const isPlayerTurn = 
       (playerColor === 'white' && game.turn() === 'w') ||
       (playerColor === 'black' && game.turn() === 'b');
 
-    if (!isPlayerTurn) {
-      return false;
-    }
+    if (!isPlayerTurn) return false;
 
     try {
       const newGame = new Chess(game.fen());
@@ -98,22 +106,52 @@ export const useComputerGameStore = create<ComputerGameStore>((set, get) => ({
           san: move.san,
         };
 
+        const newGameState = {
+          fen: newGame.fen(),
+          pgn: newGame.pgn(),
+          moves: [...gameState.moves, newMove],
+          isCheck: newGame.isCheck(),
+          isCheckmate: newGame.isCheckmate(),
+          isDraw: newGame.isDraw(),
+          turn: newGame.turn(),
+          capturedPieces,
+        };
+
         set({
           game: newGame,
-          gameState: {
-            fen: newGame.fen(),
-            pgn: newGame.pgn(),
-            moves: [...gameState.moves, newMove],
-            isCheck: newGame.isCheck(),
-            isCheckmate: newGame.isCheckmate(),
-            isDraw: newGame.isDraw(),
-            turn: newGame.turn(),
-            capturedPieces,
-          },
+          gameState: newGameState,
         });
 
-        // If game not over, let computer move
-        if (!newGame.isGameOver()) {
+        // Save game if it's over
+        if (newGame.isGameOver()) {
+          setTimeout(async () => {
+            try {
+              let result = 'draw';
+              if (newGame.isCheckmate()) {
+                const winner = newGame.turn() === 'w' ? 'black' : 'white';
+                result = winner === playerColor ? 'win' : 'loss';
+              }
+
+              console.log('💾 Saving computer game:', {
+                result,
+                playerColor,
+                moves: newGameState.moves.length,
+              });
+
+              const response = await gameAPI.saveGame({
+                pgn: newGameState.pgn,
+                fen: newGameState.fen,
+                result,
+                userColor: playerColor,
+                opponent: 'Stockfish AI',
+              });
+
+              console.log('✅ Computer game saved:', response.data);
+            } catch (error) {
+              console.error('❌ Failed to save computer game:', error);
+            }
+          }, 1000);
+        } else {
           setTimeout(() => {
             get().makeComputerMove();
           }, 500);
@@ -129,7 +167,7 @@ export const useComputerGameStore = create<ComputerGameStore>((set, get) => ({
   },
 
   makeComputerMove: async () => {
-    const { game, gameState, difficulty } = get();
+    const { game, gameState, difficulty, playerColor } = get();
 
     if (game.isGameOver()) return;
 
@@ -138,29 +176,29 @@ export const useComputerGameStore = create<ComputerGameStore>((set, get) => ({
     try {
       const bestMove = await stockfish.getBestMove(game.fen(), difficulty);
 
-      if (bestMove) {
+      if (bestMove && bestMove !== '(none)') {
         const newGame = new Chess(game.fen());
-        const move = newGame.move(bestMove);
+        
+        try {
+          const move = newGame.move(bestMove);
 
-        if (move) {
-          const capturedPieces = { ...gameState.capturedPieces };
-          if (move.captured) {
-            const color = move.color === 'w' ? 'black' : 'white';
-            capturedPieces[color].push(move.captured);
-          }
+          if (move) {
+            const capturedPieces = { ...gameState.capturedPieces };
+            if (move.captured) {
+              const color = move.color === 'w' ? 'black' : 'white';
+              capturedPieces[color].push(move.captured);
+            }
 
-          const newMove: Move = {
-            from: move.from,
-            to: move.to,
-            piece: move.piece,
-            captured: move.captured,
-            promotion: move.promotion,
-            san: move.san,
-          };
+            const newMove: Move = {
+              from: move.from,
+              to: move.to,
+              piece: move.piece,
+              captured: move.captured,
+              promotion: move.promotion,
+              san: move.san,
+            };
 
-          set({
-            game: newGame,
-            gameState: {
+            const newGameState = {
               fen: newGame.fen(),
               pgn: newGame.pgn(),
               moves: [...gameState.moves, newMove],
@@ -169,10 +207,55 @@ export const useComputerGameStore = create<ComputerGameStore>((set, get) => ({
               isDraw: newGame.isDraw(),
               turn: newGame.turn(),
               capturedPieces,
-            },
-            isThinking: false,
-          });
+            };
+
+            set({
+              game: newGame,
+              gameState: newGameState,
+              isThinking: false,
+            });
+
+            // Save game if it's over
+            if (newGame.isGameOver()) {
+              setTimeout(async () => {
+                try {
+                  let result = 'draw';
+                  if (newGame.isCheckmate()) {
+                    const winner = newGame.turn() === 'w' ? 'black' : 'white';
+                    result = winner === playerColor ? 'win' : 'loss';
+                  }
+
+                  console.log('💾 Saving computer game after AI move:', {
+                    result,
+                    playerColor,
+                    moves: newGameState.moves.length,
+                  });
+
+                  const response = await gameAPI.saveGame({
+                    pgn: newGameState.pgn,
+                    fen: newGameState.fen,
+                    result,
+                    userColor: playerColor,
+                    opponent: 'Stockfish AI',
+                  });
+
+                  console.log('✅ Computer game saved:', response.data);
+                } catch (error) {
+                  console.error('❌ Failed to save computer game:', error);
+                }
+              }, 1000);
+            }
+          } else {
+            console.error('Failed to make computer move');
+            set({ isThinking: false });
+          }
+        } catch (error) {
+          console.error('Invalid computer move:', error);
+          set({ isThinking: false });
         }
+      } else {
+        console.log('No move from engine');
+        set({ isThinking: false });
       }
     } catch (error) {
       console.error('Computer move error:', error);

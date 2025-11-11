@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { coachAPI } from '../services/coachAPI';
 import { useGameStore } from '../store/gameStore';
+import { useComputerGameStore } from '../store/computerGameStore';
+import { useLocation } from 'react-router-dom';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -8,12 +10,19 @@ interface Message {
 }
 
 export const AICoachChat = () => {
+  const location = useLocation();
+  const isComputerGame = location.pathname === '/computer';
+  
+  const practiceGameState = useGameStore((state) => state.gameState);
+  const computerGameState = useComputerGameStore((state) => state.gameState);
+  
+  const gameState = isComputerGame ? computerGameState : practiceGameState;
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [playerColor, setPlayerColor] = useState<'white' | 'black'>('white');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { gameState } = useGameStore();
   const lastMoveCountRef = useRef(0);
 
   useEffect(() => {
@@ -56,9 +65,10 @@ export const AICoachChat = () => {
 
       setMessages((prev) => [...prev, { role: 'assistant', content: response.response }]);
     } catch (error) {
+      console.error('Chat error:', error);
       setMessages((prev) => [...prev, {
         role: 'assistant',
-        content: 'Sorry, error occurred. Try again.',
+        content: 'Sorry, I encountered an error. Please try again.',
       }]);
     } finally {
       setLoading(false);
@@ -66,7 +76,7 @@ export const AICoachChat = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-3 h-90">
+    <div className="bg-white rounded-lg shadow-md p-3 h-56">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
           <span className="text-base mr-2">🤖</span>
@@ -88,7 +98,7 @@ export const AICoachChat = () => {
         </div>
       </div>
 
-      <div className="h-64 overflow-y-auto mb-2 space-y-1.5 text-xs">
+      <div className="h-32 overflow-y-auto mb-2 space-y-1.5 text-xs">
         {messages.map((msg, index) => (
           <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] px-2 py-1 rounded-lg ${

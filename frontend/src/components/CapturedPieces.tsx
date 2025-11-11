@@ -1,11 +1,19 @@
 import { useGameStore } from '../store/gameStore';
+import { useComputerGameStore } from '../store/computerGameStore';
+import { useLocation } from 'react-router-dom';
 
 const pieceSymbols: { [key: string]: string } = {
   p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚',
 };
 
 export const CapturedPieces = () => {
-  const { gameState } = useGameStore();
+  const location = useLocation();
+  const isComputerGame = location.pathname === '/computer';
+  
+  const practiceGameState = useGameStore((state) => state.gameState);
+  const computerGameState = useComputerGameStore((state) => state.gameState);
+  
+  const gameState = isComputerGame ? computerGameState : practiceGameState;
 
   const renderPieces = (pieces: string[]) => {
     if (pieces.length === 0) {

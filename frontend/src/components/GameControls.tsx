@@ -1,7 +1,21 @@
 import { useGameStore } from '../store/gameStore';
+import { useComputerGameStore } from '../store/computerGameStore';
+import { useLocation } from 'react-router-dom';
 
 export const GameControls = () => {
-  const { resetGame, undoMove, gameState } = useGameStore();
+  const location = useLocation();
+  const isComputerGame = location.pathname === '/computer';
+  
+  const practiceResetGame = useGameStore((state) => state.resetGame);
+  const practiceUndoMove = useGameStore((state) => state.undoMove);
+  const practiceGameState = useGameStore((state) => state.gameState);
+  
+  const computerResetGame = useComputerGameStore((state) => state.resetGame);
+  const computerGameState = useComputerGameStore((state) => state.gameState);
+  
+  const resetGame = isComputerGame ? computerResetGame : practiceResetGame;
+  const undoMove = isComputerGame ? undefined : practiceUndoMove;
+  const gameState = isComputerGame ? computerGameState : practiceGameState;
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4">
@@ -11,13 +25,15 @@ export const GameControls = () => {
       </div>
       
       <div className="space-y-2">
-        <button
-          onClick={undoMove}
-          disabled={gameState.moves.length === 0}
-          className="w-full px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:bg-gray-300 transition-colors font-medium"
-        >
-          ↶ Undo
-        </button>
+        {!isComputerGame && undoMove && (
+          <button
+            onClick={undoMove}
+            disabled={gameState.moves.length === 0}
+            className="w-full px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:bg-gray-300 transition-colors font-medium"
+          >
+            ↶ Undo
+          </button>
+        )}
         
         <button
           onClick={resetGame}
